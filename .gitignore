@@ -7,14 +7,19 @@
 /test/repos/
 /src/
 /include/
+/lib/enums.js
+
 
 /vendor/Release
 /vendor/*.vcxproj
 /vendor/*.filters
 /vendor/*.sln
 
+/generate/enums.json
 /generate/idefs.json
 /generate/missing-tests.json
 /binding.gyp
 
+
 *.log
+.DS_STORE

@@ -28,7 +28,8 @@ var templates = {
   class_header: file.read("templates/class_header.h"),
   struct_header: file.read("templates/struct_header.h"),
   binding: file.read("templates/binding.gyp"),
-  nodegit: file.read("templates/nodegit.cc")
+  nodegit: file.read("templates/nodegit.cc"),
+  enums: file.read("templates/enums.js")
 };
 
 var filters = {
@@ -71,7 +72,7 @@ Object.keys(partials).forEach(function(partial) {
 
 
 // Determine which definitions to actually include in the source code.
-var enabled = idefs.filter(function(idef) {
+var enabled = idefs.types.filter(function(idef) {
   // Additionally provide a friendly name to the actual filename.
   idef.name = path.basename(idef.filename, ".h");
 
@@ -93,6 +94,7 @@ fse.remove(path.resolve(__dirname, "../src")).then(function() {
   // Write out single purpose templates.
   file.write("../binding.gyp", templates.binding.render(enabled));
   file.write("../src/nodegit.cc", templates.nodegit.render(enabled));
+  file.write("../lib/enums.js", templates.enums.render(idefs.enums));
 
   // Write out all the classes.
   enabled.forEach(function(idef) {

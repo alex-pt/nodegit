@@ -20,6 +20,7 @@ Array.prototype.push.apply(libgit2.types, supplement.new.types);
 var output = [];
 var groupNames = [];
 var dependencyLookup = {};
+var enums = [];
 
 // reduce all of the groups into a hashmap and a name array for easy lookup
 var groups = libgit2.groups.reduce(function(memo, group) {
@@ -36,8 +37,10 @@ libgit2.types.forEach(function(current) {
   var typeDefOverrides = descriptor[typeName] || {};
   var typeDef = current[1];
 
-  // skip enums for now
+  // just log these out to a file for fun
   if (typeDef.type === "enum") {
+    typeDef.name = typeName;
+    enums.push(typeDef);
     return;
   }
 
@@ -115,14 +118,102 @@ output.forEach(function (def) {
   def.fields.forEach(addDependencies);
   def.functions.forEach(addDependencies);
 
+
+
   Object.keys(dependencies).forEach(function (dependencyFilename) {
     def.dependencies.push("../include/" + dependencyFilename + ".h");
   });
 });
 
+output = _.sortBy(output, "typeName");
+enums = _.sortBy(enums, "name");
+
+var previous = "";
+enums = enums.reduce(function(enumMemo, enumerable) {
+  if (previous == enumerable.name) {
+    console.log('WARNING: duplicate definition for enum ' + enumerable.name +
+      ". skipped.");
+    return enumMemo;
+  }
+
+  else if (!enumerable.fields) {
+    console.log('WARNING: incomplete definition for enum ' + enumerable.name +
+      ". skipped.");
+    return enumMemo;
+  }
+
+  previous = enumerable.name;
+
+  enumMemo.push({
+    name: enumerable.name.replace(/_t$/, ""),
+
+    //file: enumerable.file, <- for dependencies
+    //isMask: (/_t$/).test(enumerable.name)  <- for masking?,
+    values: enumerable.fields.map(function(field) {
+      return {
+        name: field.name,
+        value: field.value
+      }
+    })
+  });
+
+  return enumMemo;
+}, []);
+
+
+// Process enums
+enums.forEach(function(enumerable) {
+  output.some(function(obj) {
+    if (enumerable.name.indexOf("git_" + obj.typeName) == 0) {
+        enumerable.type = obj.jsClassName;
+    }
+    else {
+      if (enumerable.type) {
+        return true;
+      }
+    }
+  });
+
+  enumerable.values.forEach(function(value) {
+    value.name = value.name.replace(enumerable.name.toUpperCase(), "")
+      .replace(/^_/, "");
+  });
+
+  if (enumerable.type) {
+    enumerable.name = enumerable.name
+      .replace("git_" + enumerable.type.toLowerCase(), "").toUpperCase()
+      .replace(/^_/, "");
+
+  }
+  else {
+    enumerable.type = "Enums";
+    enumerable.name = enumerable.name.replace("git_", "").toUpperCase();
+  }
+});
+
+enums = _(enums).groupBy("type").reduce(function(memo, collection, type) {
+  memo.push({type: type, enums: collection});
+  return memo;
+}, []).valueOf();
+
+    // var name = enumerable.name.replace("git_", "");
+    // if (name != enumerable.namereplace(obj.typeName, "")
+    //   .replace(/^_/, "")
+    //enumerable.name = enumerable.name.replace("git_" + obj.typeName , "").toUpperCase();
+    // enumerable.values.forEach(function(value) {
+    //
+    //   value.name = value.name.replace("GIT_", "")
+    //     .replace(("git_" + obj.typeName + "_").toUpperCase(), "");
+    // });
+
 if (process.argv[2] != "--documentation") {
   utils.filterDocumentation(output);
 }
 
+output = {types: output, enums: enums};
+
 fs.writeFileSync(path.join(__dirname, "idefs.json"),
   JSON.stringify(output, null, 2));
+
+fs.writeFileSync(path.join(__dirname, "enums.json"),
+  JSON.stringify(enums, null, 2));
