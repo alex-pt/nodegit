@@ -168,12 +168,12 @@ var Utils = {
         type.jsClassName = "Number";
       }
 
-      _.merge(type, descriptor[normalizedType.replace("git_", "")] || {});
+      _.merge(type, descriptor.types[normalizedType.replace("git_", "")] || {});
     }
   },
 
   decoratePrimaryType: function(typeDef) {
-    var typeDefOverrides = descriptor[typeDef.typeName] || {};
+    var typeDefOverrides = descriptor.types[typeDef.typeName] || {};
     var partialOverrides = _.omit(typeDefOverrides, ["fields", "functions"]);
 
     typeDef.cType = typeDef.cType || null;
@@ -214,7 +214,7 @@ var Utils = {
   },
 
   decorateClass: function(classDef) {
-    var typeDefOverrides = descriptor[classDef.typeName] || {};
+    var typeDefOverrides = descriptor.types[classDef.typeName] || {};
 
     classDef.functions = (classDef.functions || []).map(function(fn) {
       var fnDef = libgit2.functions[fn];

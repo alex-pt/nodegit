@@ -34,7 +34,7 @@ var groups = libgit2.groups.reduce(function(memo, group) {
 // decorate the definitions with required data to build the C++ files
 libgit2.types.forEach(function(current) {
   var typeName = current[0];
-  var typeDefOverrides = descriptor[typeName] || {};
+  var typeDefOverrides = descriptor.types[typeName] || {};
   var typeDef = current[1];
 
   // just log these out to a file for fun
@@ -77,7 +77,7 @@ for (var groupName in groups) {
     functions: groupDef
   };
 
-  var classDefOverrides = descriptor[groupName] || {};
+  var classDefOverrides = descriptor.types[groupName] || {};
   groupDef.isClass = true;
   groupDef.isStruct = false;
 
@@ -145,7 +145,8 @@ enums = enums.reduce(function(enumMemo, enumerable) {
   previous = enumerable.name;
 
   enumMemo.push({
-    name: enumerable.name.replace(/_t$/, ""),
+    name: enumerable.name.replace(/^git_/, "").replace(/_t$/, ""),
+    cType: enumerable.name,
     isMask: (/_t$/).test(enumerable.name),
     values: enumerable.fields.map(function(field) {
       return {
@@ -162,39 +163,45 @@ enums = enums.reduce(function(enumMemo, enumerable) {
 // Process enums
 enums.forEach(function(enumerable) {
   output.some(function(obj) {
-    if (enumerable.name.indexOf("git_" + obj.typeName) == 0) {
-        enumerable.type = obj.jsClassName;
+    if (enumerable.name.indexOf(obj.typeName) == 0) {
+        enumerable.owner = obj.jsClassName;
     }
-    else {
-      if (enumerable.type) {
-        return true;
-      }
+    else if (enumerable.owner) {
+      return true;
     }
   });
 
-  var override = descriptor[enumerable.name.replace(/^git_/, "") + "_t"] || {};
-  enumerable.values.forEach(function(value) {
-    if (override.values && override.values[value.name]) {
-      _.merge(value, override.values[value.name]);
-    }
-    else {
-      value.name = value.name.replace(enumerable.name.toUpperCase(), "")
-        .replace(/^_/, "");
-    }
-  });
+  var override = descriptor.enums[enumerable.name] || {};
 
-  enumerable.type = enumerable.type || "Enums";
-  enumerable.name = enumerable.name
-    .replace(/^git_/, "")
-    .replace(new RegExp("^" + enumerable.type.toLowerCase()), "")
+  enumerable.owner = enumerable.owner || "Enums";
+
+  enumerable.JsName = enumerable.name
+    .replace(new RegExp("^" + enumerable.owner.toLowerCase()), "")
     .replace(/^_/, "")
     .toUpperCase();
 
-  _.merge(enumerable, _.omit(override, ["values"]))
+  enumerable.values.forEach(function(value) {
+    value.JsName = value.name
+      .replace(/^GIT_/, "")
+      .replace(new RegExp("^" + enumerable.owner.toUpperCase()), "")
+      .replace(/^_/, "")
+      .replace(new RegExp("^" + enumerable.JsName), "")
+      .replace(/^_/, "")
+      .toUpperCase();
+
+    if (override.values && override.values[value.name]) {
+      _.merge(value, override.values[value.name]);
+    }
+  });
+
+  _.merge(enumerable, _.omit(override, ["values"]));
 });
 
-enums = _(enums).groupBy("type").reduce(function(memo, collection, type) {
-  memo.push({type: type, enums: collection});
+enums = _(enums).groupBy("owner").reduce(function(memo, collection, owner) {
+  collection.forEach(function(enumerable) {
+    delete enumerable.owner;
+  });
+  memo.push({owner: owner, enums: collection});
   return memo;
 }, []).valueOf();
 
