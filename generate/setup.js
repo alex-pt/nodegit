@@ -20,6 +20,7 @@ Array.prototype.push.apply(libgit2.types, supplement.new.types);
 var output = [];
 var groupNames = [];
 var dependencyLookup = {};
+var types = [];
 var enums = [];
 
 // reduce all of the groups into a hashmap and a name array for easy lookup
@@ -30,6 +31,7 @@ var groups = libgit2.groups.reduce(function(memo, group) {
   return memo;
 }, {});
 
+
 // Process each type in the types array into classes and structs and
 // decorate the definitions with required data to build the C++ files
 libgit2.types.forEach(function(current) {
@@ -37,13 +39,49 @@ libgit2.types.forEach(function(current) {
   var typeDefOverrides = descriptor.types[typeName] || {};
   var typeDef = current[1];
 
+  typeDef.typeName = typeName;
+
   // just log these out to a file for fun
   if (typeDef.type === "enum") {
-    typeDef.name = typeName;
     enums.push(typeDef);
-    return;
+  }
+  else {
+    types.push(typeDef);
+  }
+});
+
+enums = _.sortBy(enums, "name");
+
+var previous = "";
+enums = enums.reduce(function(enumMemo, enumerable) {
+  if (previous == enumerable.typeName) {
+    console.log('WARNING: duplicate definition for enum ' + enumerable.name +
+      ". skipped.");
+  }
+  else if (!enumerable.fields) {
+    console.log('WARNING: incomplete definition for enum ' + enumerable.name +
+      ". skipped.");
+  }
+  else {
+    enumMemo.push({
+      name: enumerable.typeName.replace(/^git_/, "").replace(/_t$/, ""),
+      cType: enumerable.typeName,
+      isMask: (/_t$/).test(enumerable.typeName),
+      values: enumerable.fields.map(function(field) {
+        return {
+          name: field.name,
+          value: field.value
+        }
+      })
+    });
   }
 
+  previous = enumerable.name;
+  return enumMemo;
+}, []);
+
+types.forEach(function(typeDef) {
+  var typeName = typeDef.typeName;
   typeDef.cType = typeName;
   typeName = typeName.replace("git_", "");
   typeDef.typeName = typeName;
@@ -118,47 +156,10 @@ output.forEach(function (def) {
   def.fields.forEach(addDependencies);
   def.functions.forEach(addDependencies);
 
-
-
   Object.keys(dependencies).forEach(function (dependencyFilename) {
     def.dependencies.push("../include/" + dependencyFilename + ".h");
   });
 });
-
-output = _.sortBy(output, "typeName");
-enums = _.sortBy(enums, "name");
-
-var previous = "";
-enums = enums.reduce(function(enumMemo, enumerable) {
-  if (previous == enumerable.name) {
-    console.log('WARNING: duplicate definition for enum ' + enumerable.name +
-      ". skipped.");
-    return enumMemo;
-  }
-
-  else if (!enumerable.fields) {
-    console.log('WARNING: incomplete definition for enum ' + enumerable.name +
-      ". skipped.");
-    return enumMemo;
-  }
-
-  previous = enumerable.name;
-
-  enumMemo.push({
-    name: enumerable.name.replace(/^git_/, "").replace(/_t$/, ""),
-    cType: enumerable.name,
-    isMask: (/_t$/).test(enumerable.name),
-    values: enumerable.fields.map(function(field) {
-      return {
-        name: field.name,
-        value: field.value
-      }
-    })
-  });
-
-  return enumMemo;
-}, []);
-
 
 // Process enums
 enums.forEach(function(enumerable) {
@@ -204,6 +205,8 @@ enums = _(enums).groupBy("owner").reduce(function(memo, collection, owner) {
   memo.push({owner: owner, enums: collection});
   return memo;
 }, []).valueOf();
+
+output = _.sortBy(output, "typeName");
 
 if (process.argv[2] != "--documentation") {
   utils.filterDocumentation(output);
