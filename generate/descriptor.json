@@ -59,6 +59,9 @@
       }
     }
   },
+  "branch_t": {
+    "name": "BRANCH"
+  },
   "buf": {
     "functions": {
       "git_buf_grow": {
@@ -400,6 +403,9 @@
   },
   "diff_similarity_metric": {
     "ignore": true
+  },
+  "error_t": {
+    "name": "ERROR"
   },
   "filter": {
     "functions": {
@@ -1038,6 +1044,9 @@
         "ignore": true
       }
     }
+  },
+  "status_t": {
+    "name": "STATUS"
   },
   "submodule": {
     "functions": {

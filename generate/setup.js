@@ -174,37 +174,31 @@ enums.forEach(function(enumerable) {
     }
   });
 
+  var override = descriptor[enumerable.name.replace(/^git_/, "") + "_t"] || {};
   enumerable.values.forEach(function(value) {
-    value.name = value.name.replace(enumerable.name.toUpperCase(), "")
-      .replace(/^_/, "");
+    if (override.values && override.values[value.name]) {
+      _.merge(value, override.values[value.name]);
+    }
+    else {
+      value.name = value.name.replace(enumerable.name.toUpperCase(), "")
+        .replace(/^_/, "");
+    }
   });
 
-  if (enumerable.type) {
-    enumerable.name = enumerable.name
-      .replace("git_" + enumerable.type.toLowerCase(), "").toUpperCase()
-      .replace(/^_/, "");
+  enumerable.type = enumerable.type || "Enums";
+  enumerable.name = enumerable.name
+    .replace(/^git_/, "")
+    .replace(new RegExp("^" + enumerable.type.toLowerCase()), "")
+    .replace(/^_/, "")
+    .toUpperCase();
 
-  }
-  else {
-    enumerable.type = "Enums";
-    enumerable.name = enumerable.name.replace("git_", "").toUpperCase();
-  }
+  _.merge(enumerable, _.omit(override, ["values"]))
 });
 
 enums = _(enums).groupBy("type").reduce(function(memo, collection, type) {
   memo.push({type: type, enums: collection});
   return memo;
 }, []).valueOf();
-
-    // var name = enumerable.name.replace("git_", "");
-    // if (name != enumerable.namereplace(obj.typeName, "")
-    //   .replace(/^_/, "")
-    //enumerable.name = enumerable.name.replace("git_" + obj.typeName , "").toUpperCase();
-    // enumerable.values.forEach(function(value) {
-    //
-    //   value.name = value.name.replace("GIT_", "")
-    //     .replace(("git_" + obj.typeName + "_").toUpperCase(), "");
-    // });
 
 if (process.argv[2] != "--documentation") {
   utils.filterDocumentation(output);
