@@ -60,7 +60,8 @@
     }
   },
   "branch_t": {
-    "name": "BRANCH"
+    "name": "BRANCH",
+    "isMask": false
   },
   "buf": {
     "functions": {
@@ -405,7 +406,8 @@
     "ignore": true
   },
   "error_t": {
-    "name": "ERROR"
+    "name": "ERROR",
+    "isMask": false
   },
   "filter": {
     "functions": {
@@ -1046,7 +1048,8 @@
     }
   },
   "status_t": {
-    "name": "STATUS"
+    "name": "STATUS",
+    "isMask": false
   },
   "submodule": {
     "functions": {

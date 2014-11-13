@@ -146,9 +146,7 @@ enums = enums.reduce(function(enumMemo, enumerable) {
 
   enumMemo.push({
     name: enumerable.name.replace(/_t$/, ""),
-
-    //file: enumerable.file, <- for dependencies
-    //isMask: (/_t$/).test(enumerable.name)  <- for masking?,
+    isMask: (/_t$/).test(enumerable.name),
     values: enumerable.fields.map(function(field) {
       return {
         name: field.name,
