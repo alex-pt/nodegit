@@ -1,7 +1,7 @@
 var NodeGit = require("../");
 NodeGit.Enums = {};
 
-
+/* jshint ignore:start */
 {%each%}
 var {{ type }} = NodeGit.{{ type }};
 
@@ -15,3 +15,4 @@ var {{ type }} = NodeGit.{{ type }};
 {% endeach %}
 
 {% endeach %}
+/* jshint ignore:end */

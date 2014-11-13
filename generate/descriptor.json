@@ -116,6 +116,14 @@
       }
     }
   },
+  "clone_local_t": {
+    "isMask": false,
+    "values": {
+      "GIT_CLONE_LOCAL": {
+        "name": "LOCAL"
+      }
+    }
+  },
   "commit": {
     "functions": {
       "git_commit_create": {
