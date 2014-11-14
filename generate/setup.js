@@ -18,7 +18,6 @@ libgit2.types.forEach(function(type) {
 Array.prototype.push.apply(libgit2.types, supplement.new.types);
 
 var output = [];
-var groupNames = [];
 var dependencyLookup = {};
 var types = [];
 var enums = [];
@@ -27,43 +26,36 @@ var enums = [];
 var groups = libgit2.groups.reduce(function(memo, group) {
   group[1].typeName = group[0];
   memo[group[0]] = group[1];
-  groupNames.push(group[0]);
   return memo;
 }, {});
 
 
-// Process each type in the types array into classes and structs and
-// decorate the definitions with required data to build the C++ files
+// Split each type from the array into classes/structs and enums
+// each entry is of type ['name', {definingobject}]
 libgit2.types.forEach(function(current) {
-  var typeName = current[0];
-  var typeDefOverrides = descriptor.types[typeName] || {};
-  var typeDef = current[1];
-
-  typeDef.typeName = typeName;
+  current[1].typeName = current[0];
 
   // just log these out to a file for fun
-  if (typeDef.type === "enum") {
-    enums.push(typeDef);
+  if (current[1].type === "enum") {
+    enums.push(current[1]);
   }
   else {
-    types.push(typeDef);
+    types.push(current[1]);
   }
 });
 
-enums = _.sortBy(enums, "name");
-
 var previous = "";
-enums = enums.reduce(function(enumMemo, enumerable) {
+enums = _(enums).sortBy("name").reduce(function(enumMemo, enumerable) {
   if (previous == enumerable.typeName) {
-    console.log('WARNING: duplicate definition for enum ' + enumerable.name +
+    console.log('WARNING: duplicate definition for enum ' + enumerable.typeName +
       ". skipped.");
   }
   else if (!enumerable.fields) {
-    console.log('WARNING: incomplete definition for enum ' + enumerable.name +
+    console.log('WARNING: incomplete definition for enum ' + enumerable.typeName +
       ". skipped.");
   }
   else {
-    enumMemo.push({
+    enumMemo[enumerable.typeName] = {
       name: enumerable.typeName.replace(/^git_/, "").replace(/_t$/, ""),
       cType: enumerable.typeName,
       isMask: (/_t$/).test(enumerable.typeName),
@@ -73,13 +65,14 @@ enums = enums.reduce(function(enumMemo, enumerable) {
           value: field.value
         }
       })
-    });
+    };
   }
 
-  previous = enumerable.name;
+  previous = enumerable.typeName;
   return enumMemo;
-}, []);
+}, []).valueOf();
 
+// decorate the definitions with required data to build the C++ files
 types.forEach(function(typeDef) {
   var typeName = typeDef.typeName;
   typeDef.cType = typeName;
@@ -87,19 +80,13 @@ types.forEach(function(typeDef) {
   typeDef.typeName = typeName;
   dependencyLookup[typeName] = typeName;
 
-  typeDef.isClass = utils.isClass(typeName, groupNames);
+  typeDef.isClass = !!groups[typeName];
   typeDef.isStruct = !typeDef.isClass;
 
-  utils.decoratePrimaryType(typeDef);
+  typeDef.functions = groups[typeName] || [];
+  utils.decoratePrimaryType(typeDef, enums);
 
-  if (typeDef.isClass) {
-    typeDef.functions = groups[typeName];
-    utils.decorateClass(typeDef);
-    groups[typeName] = false;
-  }
-  else {
-    utils.decorateStruct(typeDef);
-  }
+  groups[typeName] = false;
 
   output.push(typeDef);
 });
@@ -115,14 +102,12 @@ for (var groupName in groups) {
     functions: groupDef
   };
 
-  var classDefOverrides = descriptor.types[groupName] || {};
   groupDef.isClass = true;
   groupDef.isStruct = false;
 
   groupDef.typeName = groupName;
   dependencyLookup[groupName] = groupName;
-  utils.decoratePrimaryType(groupDef);
-  utils.decorateClass(groupDef, classDefOverrides);
+  utils.decoratePrimaryType(groupDef, enums);
 
   output.push(groupDef);
 }
@@ -164,7 +149,7 @@ output.forEach(function (def) {
 // Process enums
 enums.forEach(function(enumerable) {
   output.some(function(obj) {
-    if (enumerable.name.indexOf(obj.typeName) == 0) {
+    if (enumerable.typeName.indexOf(obj.typeName) == 0) {
         enumerable.owner = obj.jsClassName;
     }
     else if (enumerable.owner) {
@@ -172,11 +157,11 @@ enums.forEach(function(enumerable) {
     }
   });
 
-  var override = descriptor.enums[enumerable.name] || {};
+  var override = descriptor.enums[enumerable.typeName] || {};
 
   enumerable.owner = enumerable.owner || "Enums";
 
-  enumerable.JsName = enumerable.name
+  enumerable.JsName = enumerable.typeName
     .replace(new RegExp("^" + enumerable.owner.toLowerCase()), "")
     .replace(/^_/, "")
     .toUpperCase();
@@ -211,6 +196,9 @@ output = _.sortBy(output, "typeName");
 if (process.argv[2] != "--documentation") {
   utils.filterDocumentation(output);
 }
+
+fs.writeFileSync(path.join(__dirname, "output.json"),
+  JSON.stringify(output, null, 2));
 
 output = {types: output, enums: enums};
 
